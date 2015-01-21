@@ -34,8 +34,10 @@
 #ifndef _H_OFXBEZIERWARP
 #define _H_OFXBEZIERWARP
 
+#include "ofMain.h"
 #include "ofFbo.h"
 #include "ofGraphics.h"
+#include "ofxJSON.h"
 #include "ofEvents.h"
 
 class ofxBezierWarp {
@@ -51,6 +53,12 @@ public:
     void begin();
     void end();
     
+    void loadWarpGrid();
+    void saveWarpGrid();
+    
+    void setWarpGridFile( string _file );
+    void selectAllWarpGrid();
+    
     void draw();
     void draw(float x, float y);
     void draw(float x, float y, float w, float h);
@@ -60,6 +68,8 @@ public:
     
     void setWarpGridResolution(float pixelsPerGridDivision);
     void setWarpGridResolution(int gridDivisionsX, int gridDivisionsY);
+    
+    void moveSelectionWarpGrid(float x, float y);
     
     void resetWarpGrid();
     void resetWarpGridPosition();
@@ -102,16 +112,16 @@ protected:
     bool bShowWarpGrid;
     bool bWarpPositionDiff;
     bool bDoWarp;
+    bool bSelectBox = false;
     
     ofFbo fbo;
+    ofxJSONElement grid;
+    string file = "bezierWarpGrid.json";
     
     float warpWidth;
     float warpHeight;
     float warpX;
     float warpY;
-    
-    int currentCntrlX;
-    int currentCntrlY;
     
     int numXPoints;
     int numYPoints;
@@ -119,7 +129,13 @@ protected:
     int gridDivX;
     int gridDivY;
     
-    vector<GLfloat> cntrlPoints;
+    int   dragInitSelect;
+    float dragX, dragInitX;
+    float dragY, dragInitY;
+    
+    vector<GLfloat>     cntrlPoints;
+    vector<GLfloat>     dragOffsetPoints;
+    vector<GLboolean>   selectedPoints;
     
 private:
 	

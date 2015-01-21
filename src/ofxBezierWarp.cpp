@@ -39,8 +39,6 @@ GLfloat texpts [2][2][2] = {
 
 //--------------------------------------------------------------
 ofxBezierWarp::ofxBezierWarp(){
-    currentCntrlX = -1;
-    currentCntrlY = -1;
     numXPoints = 0;
     numYPoints = 0;
     warpX = 0;
@@ -55,6 +53,8 @@ ofxBezierWarp::ofxBezierWarp(){
 //--------------------------------------------------------------
 ofxBezierWarp::~ofxBezierWarp(){
     //fbo.destroy();
+    dragOffsetPoints.clear();
+    selectedPoints.clear();
     cntrlPoints.clear();
 }
 
@@ -91,6 +91,49 @@ void ofxBezierWarp::allocate(int _w, int _h, int _numXPoints, int _numYPoints, f
     
     //glShadeModel(GL_FLAT);
 
+}
+
+//--------------------------------------------------------------
+void ofxBezierWarp::loadWarpGrid()
+{
+    grid.open( file );
+    for ( int i=0; i<grid.size(); i++ )
+    {
+        cntrlPoints.at(i) = grid[i].asFloat();
+    }
+}
+
+//--------------------------------------------------------------
+void ofxBezierWarp::saveWarpGrid()
+{
+    if(!bShowWarpGrid) return;
+    
+    grid.clear();
+    for ( int i=0; i<cntrlPoints.size(); i++ )
+    {
+        grid.append( cntrlPoints.at(i) );
+    }
+    grid.save( file );
+}
+
+//--------------------------------------------------------------
+void ofxBezierWarp::setWarpGridFile(string _file)
+{
+    file = _file;
+}
+
+//--------------------------------------------------------------
+void ofxBezierWarp::selectAllWarpGrid()
+{
+    if(!bShowWarpGrid) return;
+    
+    for(int i = 0; i < numYPoints; i++)
+    {
+        for(int j = 0; j < numXPoints; j++)
+        {
+            selectedPoints[i*numXPoints+j] = true;
+        }
+    }
 }
 
 //--------------------------------------------------------------
@@ -176,6 +219,24 @@ void ofxBezierWarp::draw(float x, float y, float w, float h){
 }
 
 //--------------------------------------------------------------
+void ofxBezierWarp::moveSelectionWarpGrid(float x, float y)
+{
+    if(!bShowWarpGrid) return;
+    
+    for(int i = 0; i < numYPoints; i++)
+    {
+        for(int j = 0; j < numXPoints; j++)
+        {
+            if ( selectedPoints[i*numXPoints+j] )
+            {
+                cntrlPoints[(i*numXPoints+j)*3+0] += x;
+                cntrlPoints[(i*numXPoints+j)*3+1] += y;
+            }
+        }
+    }
+}
+
+//--------------------------------------------------------------
 void ofxBezierWarp::drawWarpGrid(float x, float y, float w, float h){
 
     ofPushStyle();
@@ -195,9 +256,16 @@ void ofxBezierWarp::drawWarpGrid(float x, float y, float w, float h){
         for(int j = 0; j < numXPoints; j++){
             ofFill();
             ofSetColor(255, 0, 0);
+            if ( selectedPoints[(i*numXPoints+j)] ) ofSetColor(0, 255, 0);
             ofCircle(cntrlPoints[(i*numXPoints+j)*3+0], cntrlPoints[(i*numXPoints+j)*3+1], 5);
             ofNoFill();
         }
+    }
+    if ( bSelectBox )
+    {
+        ofSetLineWidth(2.0);
+        ofSetColor(0,255,0);
+        ofRect( dragInitX, dragInitY, dragX-dragInitX, dragY-dragInitY );
     }
 
     ofPopMatrix();
@@ -221,6 +289,8 @@ void ofxBezierWarp::setWarpGrid(int _numXPoints, int _numYPoints, bool forceRese
 
         // calculate an even distribution of X and Y control points across fbo width and height
         cntrlPoints.resize(numXPoints * numYPoints * 3);
+        dragOffsetPoints.resize(numXPoints * numYPoints * 3);
+        selectedPoints.resize(numXPoints * numYPoints );
         for(int i = 0; i < numYPoints; i++){
             GLfloat x, y;
             y = (fbo.getHeight() / (numYPoints - 1)) * i;
@@ -377,17 +447,72 @@ void ofxBezierWarp::mouseDragged(ofMouseEventArgs & e){
 
     float x = e.x;
     float y = e.y;
-
-    if(bWarpPositionDiff){
+    if(bWarpPositionDiff)
+    {
         x = (e.x - warpX) * fbo.getWidth()/warpWidth;
         y = (e.y - warpY) * fbo.getHeight()/warpHeight;
     }
-
-    if(currentCntrlX != -1 && currentCntrlY != -1){
-        cntrlPoints[(currentCntrlX*numXPoints+currentCntrlY)*3+0] = x;
-        cntrlPoints[(currentCntrlX*numXPoints+currentCntrlY)*3+1] = y;
-        glMap2f(GL_MAP2_VERTEX_3, 0, 1, 3, numXPoints, 0, 1, numXPoints * 3, numYPoints, &(cntrlPoints[0]));
+    dragX   = x;
+    dragY   = y;
+    
+    if( !bSelectBox )
+    {
+        // Dragging points
+        float offsetX = 0;
+        float offsetY = 0;
+        
+        for(int i = 0; i < numYPoints; i++)
+        {
+            for(int j = 0; j < numXPoints; j++)
+            {
+                if ( selectedPoints[i*numXPoints+j] )
+                {
+                    cntrlPoints[(i*numXPoints+j)*3+0] = x + dragOffsetPoints[(i*numXPoints+j)*3+0];
+                    cntrlPoints[(i*numXPoints+j)*3+1] = y + dragOffsetPoints[(i*numXPoints+j)*3+1];
+                }
+            }
+        }
     }
+    else
+    {
+        // Drag a selectbox to select multiple cntrlPoints
+        for(int i = 0; i < numYPoints; i++)
+        {
+            for(int j = 0; j < numXPoints; j++)
+            {
+                float xpos = cntrlPoints[(i*numXPoints+j)*3+0];
+                float ypos = cntrlPoints[(i*numXPoints+j)*3+1];
+                selectedPoints[i*numXPoints+j] = false;
+                
+                // Add points within the selectbox
+                if ( (dragInitX > x && xpos >= x && xpos <= dragInitX) || (dragInitX < x && xpos >= dragInitX && xpos <= x) )
+                {
+                    if ( (dragInitY > y && ypos >= y && ypos <= dragInitY) || (dragInitY < y && ypos >= dragInitY && ypos <= y) )
+                    {
+                        selectedPoints[i*numXPoints+j] = true;
+                    }
+                }
+                
+                // If the mouse is at the edge of the screen also add points outside the screen
+                if ( (dragInitY > y && ypos >= y && ypos <= dragInitY) || (dragInitY < y && ypos >= dragInitY && ypos <= y) )
+                {
+                    if ( (dragInitX > x && x < 5.0 && xpos < 5.0) || (dragInitX < x && x > ofGetWidth()-5.0 && xpos > ofGetWidth()-5.0) )
+                    {
+                        selectedPoints[i*numXPoints+j] = true;
+                    }
+                }
+                if ( (dragInitX > x && xpos >= x && xpos <= dragInitX) || (dragInitX < x && xpos >= dragInitX && xpos <= x) )
+                {
+                    if ( (dragInitY > y && y < 5.0 && ypos < 5.0) || (dragInitY < y && y > ofGetHeight()-5.0 && ypos > ofGetHeight()-5.0) )
+                    {
+                        selectedPoints[i*numXPoints+j] = true;
+                    }
+                }
+            }
+        }
+    }
+    glMap2f(GL_MAP2_VERTEX_3, 0, 1, 3, numXPoints, 0, 1, numXPoints * 3, numYPoints, &(cntrlPoints[0]));
+    
 }
 
 //--------------------------------------------------------------
@@ -395,29 +520,66 @@ void ofxBezierWarp::mousePressed(ofMouseEventArgs & e){
 
     if(!bShowWarpGrid) mouseReleased(e);
 
-    float x = e.x;
-    float y = e.y;
-
-    if(bWarpPositionDiff){
+    float x     = e.x;
+    float y     = e.y;
+    
+    if (bWarpPositionDiff)
+    {
         x = (e.x - warpX) * fbo.getWidth()/warpWidth;
         y = (e.y - warpY) * fbo.getHeight()/warpHeight;
     }
+    
+    dragX       = x;
+    dragY       = y;
+    dragInitX   = x;
+    dragInitY   = y;
 
-    float dist = 10.0f;
+   
 
-    for(int i = 0; i < numYPoints; i++){
-        for(int j = 0; j < numXPoints; j++){
-            if(x - cntrlPoints[(i*numXPoints+j)*3+0] >= -dist && x - cntrlPoints[(i*numXPoints+j)*3+0] <= dist &&
-               y - cntrlPoints[(i*numXPoints+j)*3+1] >= -dist && y - cntrlPoints[(i*numXPoints+j)*3+1] <= dist){
-                currentCntrlX = i;
-                currentCntrlY = j;
+    float dist  = 10.0f;
+    int   hit   = -1;
+    for(int i = 0; i < numYPoints; i++)
+    {
+        for(int j = 0; j < numXPoints; j++)
+        {
+            if( x - cntrlPoints[(i*numXPoints+j)*3+0] >= -dist && x - cntrlPoints[(i*numXPoints+j)*3+0] <= dist &&
+               y - cntrlPoints[(i*numXPoints+j)*3+1] >= -dist && y - cntrlPoints[(i*numXPoints+j)*3+1] <= dist)
+            {
+                hit = (i*numXPoints+j);
             }
         }
     }
+    
+    if (hit < 0)
+    {
+        bSelectBox  = true;
+        for(int i = 0; i < numYPoints; i++)
+        {
+            for(int j = 0; j < numXPoints; j++)
+            {
+                selectedPoints[(i*numXPoints+j)] = false;
+            }
+        }
+    }
+    else
+    {
+        for(int i = 0; i < numYPoints; i++)
+        {
+            for(int j = 0; j < numXPoints; j++)
+            {
+                dragOffsetPoints[(i*numXPoints+j)*3+0] = cntrlPoints[(i*numXPoints+j)*3+0] - cntrlPoints[hit*3+0];
+                dragOffsetPoints[(i*numXPoints+j)*3+1] = cntrlPoints[(i*numXPoints+j)*3+1] - cntrlPoints[hit*3+1];
+            }
+        }
+        bSelectBox          = false;
+        dragInitSelect      = hit;
+        selectedPoints[hit] = true;
+    }
+    
 }
 
 //--------------------------------------------------------------
-void ofxBezierWarp::mouseReleased(ofMouseEventArgs & e){
-    currentCntrlX = -1;
-    currentCntrlY = -1;
+void ofxBezierWarp::mouseReleased(ofMouseEventArgs & e)
+{
+    bSelectBox = false;
 }

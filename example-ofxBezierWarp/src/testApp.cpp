@@ -57,9 +57,12 @@ void testApp::draw(){
     // show some info
     ostringstream os;
     os << "Press 'w' to toggle using warp" << endl;
+    os << "Press 'g' to show the warp grid " << endl;
     os << "Press 'r' to reset the warp grid" << endl;
-    os << "Press 's' to show the warp grid" << endl;
-    os << "Use arrow keys to increase/decrease number of warp control points" << endl;
+    os << "Press 'a' to select all grid points" << endl;
+    os << "Press 's' to save the warp grid" << endl;
+    os << "Press 'l' to load the warp grid" << endl;
+    os << "Use arrow keys to move the selected grid points" << endl;
     os << endl;
     os << "FPS: " << ofGetFrameRate();
     ofDrawBitmapString(os.str(), 20, 20);
@@ -74,23 +77,32 @@ void testApp::keyPressed(int key){
         case 'r':
             warp.resetWarpGrid();
             break;
-        case 's':
+        case 'g':
             warp.toggleShowWarpGrid();
+            break;
+        case 's':
+            warp.saveWarpGrid();
+            break;
+        case 'l':
+            warp.loadWarpGrid();
+            break;
+        case 'a':
+            warp.selectAllWarpGrid();
             break;
         case 'p':
             warp.setWarpGridPosition(100, 100, (ofGetWidth() - 200), (ofGetHeight() - 200));
             break;
         case OF_KEY_UP:
-            warp.setWarpGrid(warp.getNumXPoints(), warp.getNumYPoints() + 1);
+            warp.moveSelectionWarpGrid(0,-1);
             break;
         case OF_KEY_RIGHT:
-            warp.setWarpGrid(warp.getNumXPoints() + 1, warp.getNumYPoints());
+            warp.moveSelectionWarpGrid(+1,0);
             break;
         case OF_KEY_DOWN:
-            warp.setWarpGrid(warp.getNumXPoints(), warp.getNumYPoints() - 1);
+            warp.moveSelectionWarpGrid(0,+1);
             break;
         case OF_KEY_LEFT:
-            warp.setWarpGrid(warp.getNumXPoints() - 1, warp.getNumYPoints());
+            warp.moveSelectionWarpGrid(-1,0);
             break;
     }
 }
