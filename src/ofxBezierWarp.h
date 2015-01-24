@@ -105,6 +105,9 @@ public:
     void mousePressed(ofMouseEventArgs & e);
     void mouseReleased(ofMouseEventArgs & e);
     
+    void keyPressed(ofKeyEventArgs & e);
+    void keyReleased(ofKeyEventArgs & e);
+    
 protected:
 	
     void drawWarpGrid(float x, float y, float w, float h);
@@ -129,6 +132,7 @@ protected:
     int gridDivX;
     int gridDivY;
     
+    bool  shiftDown;
     int   dragInitSelect;
     float dragX, dragInitX;
     float dragY, dragInitY;

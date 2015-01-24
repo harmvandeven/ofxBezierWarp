@@ -383,8 +383,10 @@ void ofxBezierWarp::setShowWarpGrid(bool b){
     bShowWarpGrid = b;
     if(bShowWarpGrid){
         ofRegisterMouseEvents(this);
+        ofRegisterKeyEvents(this);
     }else{
         ofUnregisterMouseEvents(this);
+        ofUnregisterKeyEvents(this);
     }
 }
 
@@ -582,4 +584,62 @@ void ofxBezierWarp::mousePressed(ofMouseEventArgs & e){
 void ofxBezierWarp::mouseReleased(ofMouseEventArgs & e)
 {
     bSelectBox = false;
+}
+
+//--------------------------------------------------------------
+void ofxBezierWarp::keyPressed(ofKeyEventArgs &e)
+{
+    if( !bShowWarpGrid ) return;
+    
+    float step = 1.0;
+    if ( shiftDown ) step = 10.0;
+    
+    switch ( e.key )
+    {
+        case 's':
+        case 'S':
+            this->saveWarpGrid();
+            break;
+        case 'l':
+        case 'L':
+            this->loadWarpGrid();
+            break;
+        case 'r':
+        case 'R':
+            this->resetWarpGrid();
+            break;
+        case 'a':
+        case 'A':
+            this->selectAllWarpGrid();
+            break;
+        case OF_KEY_UP:
+            this->moveSelectionWarpGrid(0,-step);
+            break;
+        case OF_KEY_RIGHT:
+            this->moveSelectionWarpGrid(+step,0);
+            break;
+        case OF_KEY_DOWN:
+            this->moveSelectionWarpGrid(0,+step);
+            break;
+        case OF_KEY_LEFT:
+            this->moveSelectionWarpGrid(-step,0);
+            break;
+        case OF_KEY_SHIFT:
+            shiftDown = true;
+            break;
+
+    }
+}
+
+//--------------------------------------------------------------
+void ofxBezierWarp::keyReleased(ofKeyEventArgs &e)
+{
+    if( !bShowWarpGrid ) return;
+    
+    switch ( e.key )
+    {
+        case OF_KEY_SHIFT:
+            shiftDown = false;
+            break;
+    }
 }
